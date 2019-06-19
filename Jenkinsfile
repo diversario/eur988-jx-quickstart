@@ -1,6 +1,9 @@
 pipeline {
   agent {
-    label "jenkins-nodejs"
+      kubernetes {
+          label "jenkins-nodejs"
+          defaultContainer 'nodejs'
+      }
   }
   environment {
     ORG = 'diversario'
@@ -9,17 +12,63 @@ pipeline {
     DOCKER_REGISTRY_ORG = 'diversario'
   }
   stages {
+    stage('Pre-check') {
+      steps {
+        script {
+
+
+input "wait"
+          env.IS_MERGE_COMMIT = sh(returnStatus: true, script: 'git symbolic-ref -q HEAD')
+          if (env.IS_MERGE_COMMIT == '1' || BRANCH_NAME.startsWith("PR-")) {
+                sh "git config --global credential.helper store"
+                sh "jx step git credentials"
+                sh "git branch -a"
+                env.ACTUAL_MERGE_HASH = sh(returnStdout: true, script: "git rev-parse --verify HEAD").trim()
+                sh '''
+                for r in $(git branch -a | grep "remotes/origin" | grep -v "remotes/origin/HEAD"); do
+                  rr="$(echo $r | cut -d/ -f 3)";
+                   {
+                      git checkout $rr 2>/dev/null && echo $rr >> EXISTING_BRANCHES || git checkout -f -b "$rr" $r;
+                    };
+                done
+                '''
+                sh "git checkout $BRANCH_NAME"
+                sh "git branch -a"
+          }
+
+          container('gitversion') {
+              sh 'dotnet /app/GitVersion.dll'
+              sh 'dotnet /app/GitVersion.dll > version.json'
+          }
+
+          if (env.IS_MERGE_COMMIT == '1') {
+              sh "git checkout -f $ACTUAL_MERGE_HASH"
+              // checkout all necessary branches in advance (usually just target branch (dev) plus PR branch)
+              sh 'for r in $(git branch -a | grep "remotes/origin" | grep -v "remotes/origin/HEAD"); do rr="$(echo $r | cut -d/ -f 3)"; { ! grep -q $rr EXISTING_BRANCHES || git branch -d "$rr"; }; done'
+              sh 'git reset --hard'
+          }
+
+          env.PREVIEW_VERSION = sh(returnStdout: true, script: "$WORKSPACE/scripts/version_util.sh f FullSemVer").trim()
+
+          if (BRANCH_NAME == 'master') {
+            sh "git config --global credential.helper store"
+            sh "jx step git credentials"
+            env.VERSION = sh(returnStdout: true, script: "$WORKSPACE/scripts/version_util.sh f FullSemVer").trim()
+            }
+        }
+      }
+    }
+
     stage('CI Build and push snapshot') {
       when {
         branch 'PR-*'
       }
       environment {
-        PREVIEW_VERSION = "0.0.0-SNAPSHOT-$BRANCH_NAME-$BUILD_NUMBER"
         PREVIEW_NAMESPACE = "$APP_NAME-$BRANCH_NAME".toLowerCase()
         HELM_RELEASE = "$PREVIEW_NAMESPACE".toLowerCase()
       }
       steps {
-        container('jenkinsxio/jx:2.0.119')
+        // container('jenkinsxio/jx:2.0.119')
         container('nodejs') {
           sh "npm install"
           sh "CI=true DISPLAY=:99 npm test"
@@ -45,14 +94,13 @@ pipeline {
           sh "jx step git credentials"
 
           // so we can retrieve the version in later steps
-          sh "echo \$(jx-release-version) > VERSION"
-          sh "jx step tag --version \$(cat VERSION)"
+          sh "jx step tag --version $VERSION"
         }
-        container('jenkinsxio/jx:2.0.119')
+        // container('jenkinsxio/jx:2.0.119')
         container('nodejs') {
           sh "npm install"
           sh "CI=true DISPLAY=:99 npm test"
-          sh "export VERSION=`cat VERSION` && skaffold build -f skaffold.yaml"
+          sh "export VERSION=$VERSION && skaffold build -f skaffold.yaml"
           sh "jx step post build --image $DOCKER_REGISTRY/$ORG/$APP_NAME:\$(cat VERSION)"
         }
       }
@@ -64,7 +112,7 @@ pipeline {
       steps {
         container('nodejs') {
           dir('./charts/eur988-jx-quickstart') {
-            sh "jx step changelog --batch-mode --version v\$(cat ../../VERSION)"
+            sh "jx step changelog --batch-mode --version v$VERSION"
 
             // release the helm chart
             sh "jx step helm release"
