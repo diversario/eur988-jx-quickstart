@@ -31,6 +31,8 @@ pipeline {
                     git checkout $rr 2>/dev/null && echo $rr >> EXISTING_BRANCHES || git checkout -f -b "$rr" $r
                   }
                 done
+
+                cat EXISTING_BRANCHES
                 '''
 
                 sh "git branch -a"
@@ -68,7 +70,6 @@ pipeline {
         HELM_RELEASE = "$PREVIEW_NAMESPACE".toLowerCase()
       }
       steps {
-        // container('jenkinsxio/jx:2.0.119')
         container('nodejs') {
           sh "npm install"
           sh "CI=true DISPLAY=:99 npm test"
@@ -96,7 +97,7 @@ pipeline {
           // so we can retrieve the version in later steps
           sh "jx step tag --version $VERSION"
         }
-        // container('jenkinsxio/jx:2.0.119')
+
         container('nodejs') {
           sh "npm install"
           sh "CI=true DISPLAY=:99 npm test"
