@@ -15,6 +15,7 @@ pipeline {
     stage('Pre-check') {
       steps {
         script {
+          input "wait"
           env.IS_MERGE_COMMIT = sh(returnStatus: true, script: 'git symbolic-ref -q HEAD')
           if (env.IS_MERGE_COMMIT == '1' || BRANCH_NAME.startsWith("PR-")) {
                 sh "git config --global credential.helper store"
