@@ -61,8 +61,6 @@ pipeline {
 
           env.PREVIEW_VERSION = sh(returnStdout: true, script: "$WORKSPACE/scripts/version_util.sh f FullSemVer").trim().replace('+', '-')
           env.VERSION = env.PREVIEW_VERSION
-
-          sh "jx step pr labels -b --pr ${BRANCH_NAME.replaceAll('^(pr|PR)-', '')}"
         }
       }
     }
@@ -77,6 +75,7 @@ pipeline {
       }
       steps {
         container('nodejs') {
+          sh "jx step pr labels -b --pr ${BRANCH_NAME.replaceAll('^(pr|PR)-', '')}"
           sh "npm install"
           sh "CI=true DISPLAY=:99 npm test"
           sh "export VERSION=$PREVIEW_VERSION && skaffold build -f skaffold.yaml"
