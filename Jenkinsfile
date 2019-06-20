@@ -15,7 +15,7 @@ pipeline {
     stage('Pre-check') {
       steps {
         script {
-          input "wait wait"
+          input "wait wait 1"
 
           sh "git config --global credential.helper store"
           sh "jx step git credentials"
