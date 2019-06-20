@@ -58,7 +58,7 @@ pipeline {
           if (BRANCH_NAME == 'master') {
             sh "git config --global credential.helper store"
             sh "jx step git credentials"
-            env.VERSION = sh(returnStdout: true, script: "$WORKSPACE/scripts/version_util.sh f FullSemVer").trim()
+            env.VERSION = sh(returnStdout: true, script: "$WORKSPACE/scripts/version_util.sh f FullSemVer").trim().replace('+', '-')
             }
         }
       }
