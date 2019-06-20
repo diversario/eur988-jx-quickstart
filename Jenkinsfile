@@ -61,6 +61,8 @@ pipeline {
 
           env.PREVIEW_VERSION = sh(returnStdout: true, script: "$WORKSPACE/scripts/version_util.sh f FullSemVer").trim().replace('+', '-')
           env.VERSION = env.PREVIEW_VERSION
+
+          sh "jx step pr labels -b --pr ${BRANCH_NAME.replaceAll('^(pr|PR)-', '')}"
         }
       }
     }
