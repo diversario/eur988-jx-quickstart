@@ -53,13 +53,8 @@ pipeline {
               sh 'git reset --hard'
           }
 
-          env.PREVIEW_VERSION = sh(returnStdout: true, script: "$WORKSPACE/scripts/version_util.sh f FullSemVer").trim()
-
-          if (BRANCH_NAME == 'master') {
-            sh "git config --global credential.helper store"
-            sh "jx step git credentials"
-            env.VERSION = sh(returnStdout: true, script: "$WORKSPACE/scripts/version_util.sh f FullSemVer").trim().replace('+', '-')
-            }
+          env.PREVIEW_VERSION = sh(returnStdout: true, script: "$WORKSPACE/scripts/version_util.sh f FullSemVer").trim().replace('+', '-')
+          env.VERSION = env.PREVIEW_VERSION
         }
       }
     }
@@ -123,7 +118,7 @@ pipeline {
             sh "jx step helm release"
 
             // promote through all 'Auto' promotion Environments
-            sh "jx promote -b --all-auto --timeout 1h --version \$(cat ../../VERSION)"
+            sh "jx promote -b --all-auto --timeout 1h --version $VERSION"
           }
         }
       }
