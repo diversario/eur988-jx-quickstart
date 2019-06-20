@@ -51,9 +51,9 @@ pipeline {
               // delete checked out local branches
               sh '''
                 for r in $(git branch | grep -v "HEAD"); do
-                  // if ! grep $r EXISTING_BRANCHES; then
+                  # if ! grep $r EXISTING_BRANCHES; then
                     git branch -d "$r"
-                  // fi
+                  # fi
                 done
               '''
               sh 'git reset --hard'
