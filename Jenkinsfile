@@ -39,6 +39,7 @@ pipeline {
                 sh "git checkout $BRANCH_NAME"
           }
 
+
           container('gitversion') {
               sh 'dotnet /app/GitVersion.dll'
               sh 'dotnet /app/GitVersion.dll > version.json'
