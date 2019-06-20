@@ -16,48 +16,43 @@ pipeline {
       steps {
         script {
           input "wait wait wait"
-          // env.IS_MERGE_COMMIT = sh(returnStatus: true, script: 'git symbolic-ref -q HEAD')
-          // if (env.IS_MERGE_COMMIT == '1' || BRANCH_NAME.startsWith("PR-")) {
-                sh "git config --global credential.helper store"
-                sh "jx step git credentials"
-                sh "git branch -a"
 
-                env.ACTUAL_MERGE_HASH = sh(returnStdout: true, script: "git rev-parse --verify HEAD").trim()
+          sh "git config --global credential.helper store"
+          sh "jx step git credentials"
+          sh "git branch -a"
 
-                sh '''
-                for r in $(git branch -a | grep "remotes/origin" | grep -v "remotes/origin/HEAD"); do
-                  echo "Remote branch: $r"
-                  rr="$(echo $r | cut -d/ -f 3)";
-                  {
-                    git checkout $rr 2>/dev/null && echo $rr >> EXISTING_BRANCHES || git checkout -f -b "$rr" $r
-                  }
-                done
+          env.ACTUAL_MERGE_HASH = sh(returnStdout: true, script: "git rev-parse --verify HEAD").trim()
 
-                cat EXISTING_BRANCHES
-                '''
+          sh '''
+          for r in $(git branch -a | grep "remotes/origin" | grep -v "remotes/origin/HEAD"); do
+            echo "Remote branch: $r"
+            rr="$(echo $r | cut -d/ -f 3)";
+            {
+              git checkout $rr 2>/dev/null && echo $rr >> EXISTING_BRANCHES || git checkout -f -b "$rr" $r
+            }
+          done
 
-                sh "git branch -a"
-                sh "git checkout $BRANCH_NAME"
-          // }
+          cat EXISTING_BRANCHES
+          '''
 
+          sh "git branch -a"
+          sh "git checkout $BRANCH_NAME"
 
           container('gitversion') {
               sh 'dotnet /app/GitVersion.dll'
               sh 'dotnet /app/GitVersion.dll > version.json'
           }
 
-          // if (env.IS_MERGE_COMMIT == '1') {
-              sh "git checkout -f $ACTUAL_MERGE_HASH"
-              // delete checked out local branches
-              sh '''
-                for r in $(git branch | grep -v "HEAD"); do
-                  # if ! grep $r EXISTING_BRANCHES; then
-                    git branch -d "$r"
-                  # fi
-                done
-              '''
-              sh 'git reset --hard'
-          // }
+          sh "git checkout -f $ACTUAL_MERGE_HASH"
+
+          // delete checked out local branches
+          sh '''
+            for r in $(git branch | grep -v "HEAD"); do
+              git branch -d "$r"
+            done
+
+            git reset --hard
+          '''
 
           env.PREVIEW_VERSION = sh(returnStdout: true, script: "$WORKSPACE/scripts/version_util.sh f FullSemVer").trim().replace('+', '-')
           env.VERSION = env.PREVIEW_VERSION
