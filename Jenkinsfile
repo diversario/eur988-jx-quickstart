@@ -15,25 +15,26 @@ pipeline {
     stage('Pre-check') {
       steps {
         script {
-
-
-input "wait"
           env.IS_MERGE_COMMIT = sh(returnStatus: true, script: 'git symbolic-ref -q HEAD')
           if (env.IS_MERGE_COMMIT == '1' || BRANCH_NAME.startsWith("PR-")) {
                 sh "git config --global credential.helper store"
                 sh "jx step git credentials"
                 sh "git branch -a"
+
                 env.ACTUAL_MERGE_HASH = sh(returnStdout: true, script: "git rev-parse --verify HEAD").trim()
+
                 sh '''
                 for r in $(git branch -a | grep "remotes/origin" | grep -v "remotes/origin/HEAD"); do
+                  echo "Remote branch: $r"
                   rr="$(echo $r | cut -d/ -f 3)";
-                   {
-                      git checkout $rr 2>/dev/null && echo $rr >> EXISTING_BRANCHES || git checkout -f -b "$rr" $r;
-                    };
+                  {
+                    git checkout $rr 2>/dev/null && echo $rr >> EXISTING_BRANCHES || git checkout -f -b "$rr" $r
+                  }
                 done
                 '''
-                sh "git checkout $BRANCH_NAME"
+
                 sh "git branch -a"
+                sh "git checkout $BRANCH_NAME"
           }
 
           container('gitversion') {
@@ -43,8 +44,12 @@ input "wait"
 
           if (env.IS_MERGE_COMMIT == '1') {
               sh "git checkout -f $ACTUAL_MERGE_HASH"
-              // checkout all necessary branches in advance (usually just target branch (dev) plus PR branch)
-              sh 'for r in $(git branch -a | grep "remotes/origin" | grep -v "remotes/origin/HEAD"); do rr="$(echo $r | cut -d/ -f 3)"; { ! grep -q $rr EXISTING_BRANCHES || git branch -d "$rr"; }; done'
+              // delete checked out local branches
+              sh '''
+                for r in $(git branch | grep -v "HEAD"); do
+                  git branch -d "$r"
+                done
+              '''
               sh 'git reset --hard'
           }
 
